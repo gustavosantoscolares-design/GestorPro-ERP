@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GestorPro ERP</title>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            background: #0f172a;
+            color: white;
+        }
+
+        header {
+            background: #1e3a8a;
+            padding: 18px;
+            text-align: center;
+            font-size: 20px;
+            font-weight: bold;
+            letter-spacing: 1px;
+        }
+
+        .container {
+            padding: 15px;
+            max-width: 800px;
+            margin: auto;
+        }
+
+        button {
+            background: #2563eb;
+            border: none;
+            padding: 14px;
+            color: white;
+            border-radius: 10px;
+            width: 100%;
+            margin-top: 12px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: 0.3s;
+        }
+
+        button:hover {
+            background: #1d4ed8;
+        }
+
+        .item {
+            background: #1e293b;
+            padding: 15px;
+            margin-top: 12px;
+            border-radius: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+
+        .item:hover {
+            background: #334155;
+        }
+
+        .item span {
+            font-size: 15px;
+        }
+
+        .footer {
+            margin-top: 20px;
+            font-size: 12px;
+            text-align: center;
+            opacity: 0.6;
+        }
+    </style>
+</head>
+
+<body>
+
+    <header>GestorPro ERP</header>
+
+    <div class="container">
+
+        <input type="file" id="inputExcel" style="display:none" accept=".xlsx,.xls">
+
+        <button onclick="document.getElementById('inputExcel').click()">
+            📂 Importar Planilha
+        </button>
+
+        <button onclick="exportarExcel()">
+            📥 Exportar Relatório
+        </button>
+
+        <div id="listaItens"></div>
+
+        <div class="footer">
+            Create by Gustavo Colares<br>
+
+        </div>
+
+    </div>
+
+    <script>
+
+        let estoque = [];
+        let alteracoesPendentes = false;
+
+        // IMPORTAR PLANILHA
+        document.getElementById('inputExcel').addEventListener('change', function (e) {
+
+            const file = e.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+
+            reader.onload = function (event) {
+                const data = new Uint8Array(event.target.result);
+                const workbook = XLSX.read(data, { type: 'array' });
+                const sheet = workbook.Sheets[workbook.SheetNames[0]];
+                const json = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+
+                estoque = [];
+
+                json.forEach((linha, index) => {
+                    if (index > 0 && linha[0]) {
+                        estoque.push({
+                            descricao: linha[0],
+                            quantidade: parseInt(linha[1]) || 0
+                        });
+                    }
+                });
+
+                alteracoesPendentes = true;
+                renderizar();
+            };
+
+            reader.readAsArrayBuffer(file);
+        });
+
+        // RENDERIZAR ITENS
+        function renderizar() {
+            const lista = document.getElementById('listaItens');
+            lista.innerHTML = "";
+
+            estoque.forEach((item, index) => {
+
+                const div = document.createElement("div");
+                div.className = "item";
+
+                div.innerHTML = `
+            <span>${item.descricao}</span>
+            <span>${item.quantidade}</span>
+        `;
+
+                div.onclick = () => alterarQuantidade(index);
+
+                lista.appendChild(div);
+            });
+        }
+
+        // ALTERAR QUANTIDADE
+        function alterarQuantidade(index) {
+
+            let valor = prompt("Digite a quantidade (use número negativo para subtrair):");
+
+            if (valor !== null) {
+
+                if (confirm("Tem certeza que deseja atualizar a quantidade?")) {
+
+                    estoque[index].quantidade += parseInt(valor) || 0;
+                    alteracoesPendentes = true;
+                    renderizar();
+
+                }
+
+            }
+        }
+
+        // EXPORTAR RELATÓRIO
+        function exportarExcel() {
+
+            if (estoque.length === 0) {
+                alert("Nenhum item para exportar.");
+                return;
+            }
+
+            let nomeArquivo = prompt("Digite o nome do arquivo:");
+
+            if (!nomeArquivo) return;
+
+            const dados = [["Descrição", "Quantidade"]];
+
+            estoque.forEach(item => {
+                dados.push([item.descricao, item.quantidade]);
+            });
+
+            const ws = XLSX.utils.aoa_to_sheet(dados);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, "Relatorio");
+
+            XLSX.writeFile(wb, nomeArquivo + ".xlsx");
+
+            alteracoesPendentes = false;
+        }
+
+        // TRAVA AO SAIR / ATUALIZAR
+        window.addEventListener("beforeunload", function (e) {
+            if (alteracoesPendentes) {
+                e.preventDefault();
+                e.returnValue = "";
+            }
+        });
+
+    </script>
+
+</body>
+
+</html>
